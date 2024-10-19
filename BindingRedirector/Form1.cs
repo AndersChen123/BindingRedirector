@@ -217,7 +217,7 @@ public partial class Form1 : Form
         try
         {
             var files = Directory.GetFiles(tbFolder.Text, "*.dll", SearchOption.TopDirectoryOnly);
-            var keywords = tbKeywords.Text.Split(",", StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim().ToLower()).ToList();
+            var keywords = tbKeywords.Text.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim().ToLower()).ToList();
 
             foreach (var file in files)
             {

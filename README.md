@@ -17,3 +17,6 @@ This tool aims to simplify the process of creating and managing binding redirect
 # XML Processing:
    - Generates new XML elements for binding redirects.
    - Merges new binding redirects with existing ones in the case of updates.
+
+
+![binding_redirector](https://github.com/user-attachments/assets/5bc44f4e-1b31-4ab7-81f3-f79af26e5ac4)

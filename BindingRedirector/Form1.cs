@@ -1,5 +1,5 @@
-using System.Reflection;
 using System.Xml.Linq;
+using ICSharpCode.Decompiler.Metadata;
 
 namespace BindingRedirector;
 
@@ -13,7 +13,7 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
-    }    
+    }
 
     private void btnBrowseFolder_Click(object sender, EventArgs e)
     {
@@ -140,14 +140,19 @@ public partial class Form1 : Form
 
         xml.Save(outputPath);
     }
-
     private XElement CreateDependentAssemblyElement(DependentAssembly b)
     {
+        var assemblyIdentity = new XElement(_asmv1 + "assemblyIdentity",
+              new XAttribute("name", b.Name),
+              new XAttribute("culture", b.Culture));
+
+        if (b.PublicKeyToken != null)
+        {
+            assemblyIdentity.Add(new XAttribute("publicKeyToken", b.PublicKeyToken));
+        }
+
         return new XElement(_asmv1 + "dependentAssembly",
-            new XElement(_asmv1 + "assemblyIdentity",
-                new XAttribute("name", b.Name),
-                new XAttribute("publicKeyToken", b.PublicKeyToken),
-                new XAttribute("culture", b.Culture)),
+            assemblyIdentity,
             new XElement(_asmv1 + "bindingRedirect",
                 new XAttribute("oldVersion", "0.0.0.0-" + b.NewVersion),
                 new XAttribute("newVersion", b.NewVersion)));
@@ -165,7 +170,7 @@ public partial class Form1 : Form
             var publicKeyToken = assemblyIdentity?.Attribute("publicKeyToken")?.Value;
 
             var existingElement = mergedAssemblyBinding.Elements(_asmv1 + "dependentAssembly")
-                .FirstOrDefault(e => 
+                .FirstOrDefault(e =>
                     e.Element(_asmv1 + "assemblyIdentity")?.Attribute("name")?.Value == name &&
                     e.Element(_asmv1 + "assemblyIdentity")?.Attribute("publicKeyToken")?.Value == publicKeyToken);
 
@@ -234,17 +239,7 @@ public partial class Form1 : Form
                     continue;
                 }
 
-                var assembly = Assembly.LoadFile(file);
-                var asmName = assembly.GetName();
-
-                var definition = new DependentAssembly
-                {
-                    Culture = string.IsNullOrWhiteSpace(asmName.CultureName) ? "neutral" : asmName.CultureName,
-                    Name = asmName.Name,
-                    NewVersion = asmName.Version?.ToString(),
-                    PublicKeyToken = asmName.GetPublicKeyToken()?.Select(x => x.ToString("x2")).Aggregate((x, y) => x + y)
-                };
-
+                var definition = ReadAssemblyInfo(file);
                 assemblies.Add(definition);
             }
         }
@@ -284,6 +279,30 @@ public partial class Form1 : Form
     private void LogError(Exception ex)
     {
         AppendToLogs($"Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
+    }
+
+    private DependentAssembly ReadAssemblyInfo(string assemblyPath)
+    {
+        try
+        {
+            var peFile = new PEFile(assemblyPath);
+            var reader = peFile.Metadata;
+            var definition = reader.GetAssemblyDefinition();
+
+            var token = reader.GetBlobBytes(definition.PublicKey);
+            return new DependentAssembly
+            {
+                Name = reader.GetString(definition.Name),
+                NewVersion = definition.Version.ToString(),
+                Culture = definition.Culture.IsNil ? "neutral" : reader.GetString(definition.Culture),
+                PublicKeyToken = reader.GetPublicKeyToken(),
+            };
+        }
+        catch (Exception ex)
+        {
+            LogError(ex);
+            return null;
+        }
     }
 
     // https://stackoverflow.com/questions/367761/how-to-determine-whether-a-dll-is-a-managed-assembly-or-native-prevent-loading

@@ -240,7 +240,10 @@ public partial class Form1 : Form
                 }
 
                 var definition = ReadAssemblyInfo(file);
-                assemblies.Add(definition);
+                if (definition != null)
+                {
+                    assemblies.Add(definition);
+                }
             }
         }
         catch (Exception e)
@@ -289,13 +292,13 @@ public partial class Form1 : Form
             var reader = peFile.Metadata;
             var definition = reader.GetAssemblyDefinition();
 
-            var token = reader.GetBlobBytes(definition.PublicKey);
+            var token = reader.GetPublicKeyToken();
             return new DependentAssembly
             {
                 Name = reader.GetString(definition.Name),
                 NewVersion = definition.Version.ToString(),
                 Culture = definition.Culture.IsNil ? "neutral" : reader.GetString(definition.Culture),
-                PublicKeyToken = reader.GetPublicKeyToken(),
+                PublicKeyToken = string.Equals(token, "null", StringComparison.OrdinalIgnoreCase) ? null : token
             };
         }
         catch (Exception ex)
